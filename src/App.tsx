@@ -192,7 +192,7 @@ export default function App() {
           </div>
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto px-2 pb-24 md:pb-3">
-          <div className="mx-auto max-w-[1600px]">
+          <div>
             {routerMode && loadError && page !== 'service' && (
               <div className="card mb-2 border border-danger/30 px-4 py-3 text-xs text-danger">
                 路由器上的 config.dae 无法被编辑器解析（{loadError}），当前显示的是本地草稿。点击“应用到 dae”会覆盖路由器上的配置。
