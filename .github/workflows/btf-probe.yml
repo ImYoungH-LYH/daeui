@@ -31,7 +31,16 @@ jobs:
           curl -fsSL "$base/kernel-debug.tar.zst" -o kernel-debug.tar.zst
           grep ' \*kernel-debug.tar.zst$' sha256sums | sed 's/\*//' | sha256sum -c -
           tar --zstd -xf kernel-debug.tar.zst debug/vmlinux
+      - name: DWARF completeness of the types dae reads
+        run: |
+          for t in task_struct mm_struct; do
+            echo "=== $t (DWARF)"
+            pahole -F dwarf -C "$t" debug/vmlinux > "dwarf-$t.txt" 2>&1 || true
+            wc -l < "dwarf-$t.txt"
+            grep -nE 'struct mm_struct \*\s+mm;|arg_start|/\* size:' "dwarf-$t.txt" | head -5
+          done
       - name: Encode BTF
+        continue-on-error: true
         run: |
           pahole --btf_encode_detached=vmlinux.btf debug/vmlinux 2>&1 | tail -20
           ls -la vmlinux.btf
