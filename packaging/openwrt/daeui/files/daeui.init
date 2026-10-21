@@ -1,0 +1,24 @@
+#!/bin/sh /etc/rc.common
+
+USE_PROCD=1
+START=98
+STOP=11
+
+start_service() {
+	config_load daeui
+	local listen
+	config_get listen main listen ':2027'
+
+	mkdir -p /etc/daeui
+	chmod 0700 /etc/daeui
+	procd_open_instance daeui
+	procd_set_param command /usr/bin/daeui -listen "$listen" -data /etc/daeui
+	procd_set_param respawn 3600 5 5
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
+}
+
+service_triggers() {
+	procd_add_reload_trigger daeui
+}

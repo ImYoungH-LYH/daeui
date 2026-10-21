@@ -1,0 +1,9 @@
+node_modules
+dist
+*.tsbuildinfo
+build
+server/web/dist/*
+!server/web/dist/.gitkeep
+.daeui-dev
+.gotmp
+.claude/

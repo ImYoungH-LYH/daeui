@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Palette modelled on daisyUI's "emerald" theme. */
+:root {
+  --canvas: 243 242 240;
+  --surface: 255 255 255;
+  --sunken: 237 237 237;
+  --ink: 51 60 77;
+  --muted: 112 120 135;
+  --line: 222 224 228;
+  --pill: 51 60 77;
+  --pill-ink: 250 251 252;
+  --accent: 102 204 138;
+  --accent-ink: 22 64 42;
+  --glow: 246 128 103;
+  --danger: 239 83 80;
+  --info: 59 130 246;
+  --wall-a: 242 104 56;
+  --wall-b: 249 170 135;
+  --wall-c: 52 108 214;
+  --wall-d: 160 186 230;
+  --wall-base: 246 244 242;
+  --glass: 0.75;
+  color-scheme: light;
+}
+
+:root.dark {
+  --canvas: 22 25 32;
+  --surface: 34 38 47;
+  --sunken: 46 51 62;
+  --ink: 226 230 236;
+  --muted: 146 154 168;
+  --line: 58 64 77;
+  --pill: 226 230 236;
+  --pill-ink: 30 34 42;
+  --accent: 102 204 138;
+  --accent-ink: 16 46 30;
+  --glow: 236 120 90;
+  --danger: 248 113 113;
+  --info: 96 165 250;
+  --wall-a: 150 62 34;
+  --wall-b: 96 52 44;
+  --wall-c: 28 58 128;
+  --wall-d: 40 52 80;
+  --wall-base: 20 22 28;
+  --glass: 0.72;
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply text-ink font-sans antialiased text-sm;
+  /* Wallpaper: warm orange top-right, cool blue bottom-left, pale centre. */
+  background:
+    radial-gradient(70% 80% at 100% 10%, rgb(var(--wall-a)) 0%, rgb(var(--wall-a) / 0.6) 30%, transparent 70%),
+    radial-gradient(60% 70% at 95% 75%, rgb(var(--wall-b)) 0%, transparent 70%),
+    radial-gradient(55% 50% at 0% 100%, rgb(var(--wall-c)) 0%, rgb(var(--wall-c) / 0.5) 35%, transparent 75%),
+    radial-gradient(40% 60% at 0% 40%, rgb(var(--wall-d) / 0.8) 0%, transparent 70%),
+    rgb(var(--wall-base));
+  background-attachment: fixed;
+}
+
+@layer components {
+  .glass {
+    background-color: rgb(var(--surface) / var(--glass));
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+  }
+  .card {
+    @apply glass rounded-[26px];
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-4 h-8 text-sm font-medium transition disabled:opacity-40 disabled:pointer-events-none whitespace-nowrap;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-accent-ink hover:brightness-95;
+  }
+  .btn-ghost {
+    @apply btn text-ink hover:bg-ink/[0.07];
+  }
+  .btn-soft {
+    @apply btn bg-ink/[0.07] text-ink hover:bg-ink/[0.12];
+  }
+  .icon-btn {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/70 hover:bg-ink/[0.07] hover:text-ink transition-colors disabled:opacity-30 disabled:pointer-events-none;
+  }
+  .input {
+    @apply h-8 w-full rounded-full border border-ink/[0.12] bg-surface/75 px-3.5 text-sm text-ink placeholder:text-muted/70 outline-none transition focus:border-accent focus:bg-surface;
+  }
+  textarea.input {
+    @apply rounded-2xl;
+  }
+  .label {
+    @apply mb-1.5 block text-[12px] text-ink/80;
+  }
+  .chip {
+    @apply inline-flex h-6 items-center rounded-full bg-sunken/75 px-2 text-xs font-medium text-ink/80 whitespace-nowrap;
+  }
+  .segmented {
+    @apply inline-flex rounded-full bg-ink/[0.09] p-1 text-sm;
+  }
+  .segmented > button {
+    @apply h-7 rounded-full px-3 text-ink/80 transition-colors;
+  }
+  .segmented > button[data-active='true'] {
+    @apply bg-accent text-accent-ink;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--ink) / 0.25);
+  border-radius: 6px;
+}

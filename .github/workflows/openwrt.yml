@@ -1,0 +1,125 @@
+name: OpenWrt packages
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  app:
+    name: Build DaeUI binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - run: npm ci
+      - run: npm test
+      - name: Go tests
+        working-directory: server
+        run: go test ./...
+      - name: Build
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          case "$VERSION" in [0-9]*) ;; *) VERSION="$(node -p 'require("./package.json").version')" ;; esac
+          echo "DAEUI_VERSION=$VERSION" >> "$GITHUB_ENV"
+          DAEUI_VERSION="$VERSION" node scripts/build-server.mjs amd64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: daeui-bin
+          path: build/daeui-linux-amd64
+
+  sdk:
+    name: Packages for OpenWrt ${{ matrix.release }}
+    needs: app
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # One build per point release: vmlinux-btf must match that release's kernel exactly.
+        release: ['25.12.5', '25.12.6']
+    container:
+      image: openwrt/sdk:x86-64-v${{ matrix.release }}
+      options: --user root
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: daeui-bin
+          path: daeui-bin
+      - name: Host tools for building vmlinux with BTF
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends dwarves libelf-dev bc rsync unzip
+          pahole --version
+      - name: Prepare SDK
+        working-directory: /builder
+        run: |
+          [ -x ./setup.sh ] && ./setup.sh
+          ./scripts/feeds update base
+          ./scripts/feeds install -a -p base
+          mkdir -p package/daeui-pkgs
+          cp -r "$GITHUB_WORKSPACE"/packaging/openwrt/* package/daeui-pkgs/
+          install -m 0755 "$GITHUB_WORKSPACE/daeui-bin/daeui-linux-amd64" package/daeui-pkgs/daeui/files/daeui-x86_64
+          make defconfig
+      - name: Build dae and daeui
+        working-directory: /builder
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          case "$VERSION" in [0-9]*) ;; *) VERSION="$(sed -n 's/.*"version": "\(.*\)".*/\1/p' "$GITHUB_WORKSPACE/package.json")" ;; esac
+          make package/dae/compile V=s
+          make package/daeui/compile V=s DAEUI_VERSION="$VERSION"
+      - name: Build vmlinux-btf
+        working-directory: /builder
+        run: make package/vmlinux-btf/compile V=s -j"$(nproc)"
+      - name: Collect
+        working-directory: /builder
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          find bin -name '*.apk' -print
+          cp "$(find bin -name 'dae-[0-9]*.apk' | head -n1)" "$GITHUB_WORKSPACE/out/dae-x86_64.apk"
+          cp "$(find bin -name 'daeui-[0-9]*.apk' | head -n1)" "$GITHUB_WORKSPACE/out/daeui-x86_64.apk"
+          btf="$(find bin -name 'vmlinux-btf-[0-9]*.apk' | head -n1)"
+          kver="$(basename "$btf" | sed -E 's/^vmlinux-btf-([0-9.]+)-r[0-9]+\.apk$/\1/')"
+          cp "$btf" "$GITHUB_WORKSPACE/out/vmlinux-btf-${kver}-x86_64.apk"
+          ls -la "$GITHUB_WORKSPACE/out"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apks-${{ matrix.release }}
+          path: out/*.apk
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: sdk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: apks-*
+          path: apks
+      - name: Assemble assets
+        run: |
+          mkdir -p assets
+          # dae/daeui are identical across point releases; vmlinux-btf differs per kernel.
+          find apks -name '*.apk' -exec cp -n {} assets/ \;
+          cp scripts/install-openwrt.sh assets/
+          (cd assets && sha256sum * > SHA256SUMS)
+          ls -la assets
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" assets/* --title "$GITHUB_REF_NAME" --generate-notes
