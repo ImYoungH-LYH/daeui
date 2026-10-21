@@ -79,7 +79,8 @@ jobs:
       - name: Prepare SDK
         working-directory: /builder
         run: |
-          [ -x ./setup.sh ] && ./setup.sh
+          # Release images ship with the SDK already unpacked (setup.sh ran at image build).
+          [ -x ./scripts/feeds ] || ./setup.sh
           ./scripts/feeds update base
           ./scripts/feeds install -a -p base
           mkdir -p package/daeui-pkgs
