@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-only
 #
-# Detached BTF for the SDK's own kernel, so CO-RE eBPF (dae) loads on official
+# Detached BTF for the release kernel, so CO-RE eBPF (dae) loads on official
 # firmware built without CONFIG_DEBUG_INFO_BTF.
 #
-# Built inside the official buildroot (the SDK ships no kernel sources), which holds the
-# release's patched kernel tree and .config. We rebuild vmlinux from a copy of it with ONLY the debug-info options changed (struct
-# layouts must stay identical to the running kernel), then let pahole encode
-# the BTF. The build aborts if any other kernel option would change.
+# Must be built inside the official buildroot checked out at the release (the
+# SDK ships no kernel sources). We rebuild vmlinux from a copy of the release's
+# patched kernel tree with ONLY the debug-info options changed, so struct
+# layouts stay identical to the running kernel, then let pahole encode the BTF.
+# The build aborts if any other kernel option would change.
 
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk

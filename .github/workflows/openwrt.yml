@@ -66,6 +66,12 @@ jobs:
           cp -r "$GITHUB_WORKSPACE"/packaging/openwrt/dae "$GITHUB_WORKSPACE"/packaging/openwrt/daeui package/daeui-pkgs/
           install -m 0755 "$GITHUB_WORKSPACE/daeui-bin/daeui-linux-amd64" package/daeui-pkgs/daeui/files/daeui-x86_64
           make defconfig
+          printf 'CONFIG_PACKAGE_dae=m\nCONFIG_PACKAGE_daeui=m\n' >> .config
+          make defconfig
+          # defconfig silently drops packages whose dependencies cannot be met.
+          for p in dae daeui; do
+            grep -q "^CONFIG_PACKAGE_$p=m" .config || { echo "package $p is not selectable (unmet DEPENDS?)" >&2; exit 1; }
+          done
       - name: Build dae and daeui
         working-directory: /builder
         run: |
@@ -126,10 +132,10 @@ jobs:
           curl -fsSL "$DL/feeds.buildinfo" -o feeds.buildinfo
           curl -fsSL "$DL/config.buildinfo" -o config.buildinfo
           curl -fsSL "$DL/profiles.json" -o profiles.json
-          commit="$(sed -E 's/^r[0-9]+-//' version.buildinfo)"
           git clone --filter=blob:none --branch "v$REL" https://github.com/openwrt/openwrt.git openwrt
-          head="$(git -C openwrt rev-parse HEAD)"
-          case "$head" in "$commit"*) echo "openwrt at $head matches $(cat version.buildinfo)" ;; *) echo "tag v$REL is $head, expected $commit" >&2; exit 1 ;; esac
+          # The release tag adds a "version" file naming the revision the buildbot built.
+          [ "$(cat openwrt/version)" = "$(cat version.buildinfo)" ] || { echo "openwrt/version is $(cat openwrt/version), official build is $(cat version.buildinfo)" >&2; exit 1; }
+          echo "buildroot revision $(cat openwrt/version) matches the official build"
           cp feeds.buildinfo openwrt/feeds.conf
           cd openwrt
           ./scripts/feeds update -a
@@ -153,6 +159,9 @@ jobs:
         working-directory: openwrt
         run: |
           cp -r ../daeui/packaging/openwrt/vmlinux-btf package/
+          echo 'CONFIG_PACKAGE_vmlinux-btf=m' >> .config
+          make defconfig
+          grep -q '^CONFIG_PACKAGE_vmlinux-btf=m' .config || { echo "vmlinux-btf is not selectable" >&2; exit 1; }
           make package/vmlinux-btf/compile V=s -j"$(nproc)"
           mkdir -p ../out
           btf="$(find bin -name 'vmlinux-btf-[0-9]*.apk' | head -n1)"
