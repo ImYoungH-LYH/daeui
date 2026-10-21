@@ -61,8 +61,20 @@ jobs:
           path: daeui-bin
       - name: Host tools for building vmlinux with BTF
         run: |
-          apt-get update -qq
-          apt-get install -y --no-install-recommends dwarves libelf-dev bc rsync unzip
+          # The SDK image is Debian bullseye; its security suite has left deb.debian.org.
+          if grep -q bullseye /etc/os-release; then
+            sed -i 's|http://deb.debian.org/debian-security|https://snapshot.debian.org/archive/debian-security/20260903T220410Z|g' /etc/apt/sources.list
+          fi
+          apt-get -o Acquire::Check-Valid-Until=false update -qq
+          apt-get install -y --no-install-recommends bc cmake libdw-dev libelf-dev zlib1g-dev unzip
+          # Distro pahole (1.20) cannot read GCC 14's DWARF 5; kernel 6.12 BTF needs a recent one.
+          curl -fsSL --retry 3 https://fedorapeople.org/~acme/dwarves/dwarves-1.28.tar.bz2 -o /tmp/dwarves.tar.bz2
+          echo '826efc0fc9237d3c1e9c01553ea387a8cb46e8dc119ff863889043f4ed54b2ae  /tmp/dwarves.tar.bz2' | sha256sum -c -
+          tar -xjf /tmp/dwarves.tar.bz2 -C /tmp
+          cmake -S /tmp/dwarves-1.28 -B /tmp/dwarves-build -D__LIB=lib -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/dwarves-build -j"$(nproc)"
+          cmake --install /tmp/dwarves-build
+          ldconfig
           pahole --version
       - name: Prepare SDK
         working-directory: /builder
