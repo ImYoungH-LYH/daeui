@@ -1,0 +1,45 @@
+name: BTF probe
+
+# Experiment: can BTF extracted from the official kernel-debug vmlinux serve dae?
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: OpenWrt release
+        default: '25.12.5'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: pahole 1.28
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cmake libdw-dev libelf-dev zlib1g-dev zstd
+          curl -fsSL --retry 3 https://fedorapeople.org/~acme/dwarves/dwarves-1.28.tar.bz2 -o /tmp/dwarves.tar.bz2
+          echo '826efc0fc9237d3c1e9c01553ea387a8cb46e8dc119ff863889043f4ed54b2ae  /tmp/dwarves.tar.bz2' | sha256sum -c -
+          tar -xjf /tmp/dwarves.tar.bz2 -C /tmp
+          cmake -S /tmp/dwarves-1.28 -B /tmp/b -D__LIB=lib -DCMAKE_BUILD_TYPE=Release >/dev/null
+          cmake --build /tmp/b -j"$(nproc)" >/dev/null
+          sudo cmake --install /tmp/b >/dev/null
+          sudo ldconfig
+          pahole --version
+      - name: Official kernel-debug
+        run: |
+          base="https://downloads.openwrt.org/releases/${{ inputs.release }}/targets/x86/64"
+          curl -fsSL "$base/sha256sums" -o sha256sums
+          curl -fsSL "$base/kernel-debug.tar.zst" -o kernel-debug.tar.zst
+          grep ' \*kernel-debug.tar.zst$' sha256sums | sed 's/\*//' | sha256sum -c -
+          tar --zstd -xf kernel-debug.tar.zst debug/vmlinux
+      - name: Encode BTF
+        run: |
+          pahole --btf_encode_detached=vmlinux.btf debug/vmlinux 2>&1 | tail -20
+          ls -la vmlinux.btf
+      - name: Inspect types dae needs
+        run: |
+          for t in task_struct mm_struct sk_buff sock; do
+            echo "=== $t"
+            pahole -F btf -C "$t" vmlinux.btf > "$t.txt" 2>&1 || true
+            wc -l < "$t.txt"
+            grep -nE '^\s*struct mm_struct \*\s*mm;|arg_start|/\* size:' "$t.txt" | head -5
+          done
