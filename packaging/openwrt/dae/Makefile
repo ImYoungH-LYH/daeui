@@ -28,7 +28,7 @@ define Package/dae
   SUBMENU:=Web Servers/Proxies
   TITLE:=eBPF-based transparent proxy (official build)
   URL:=https://github.com/daeuniverse/dae
-  DEPENDS:=@(x86_64) +kmod-sched-core +kmod-sched-bpf +kmod-xdp-sockets-diag +kmod-veth +ca-bundle
+  DEPENDS:=@(x86_64) +kmod-sched-core +kmod-sched-bpf +kmod-veth +ca-bundle
 endef
 
 define Package/dae/description
