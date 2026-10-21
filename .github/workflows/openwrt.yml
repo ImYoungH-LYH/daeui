@@ -39,16 +39,12 @@ jobs:
           path: build/daeui-linux-amd64
 
   sdk:
-    name: Packages for OpenWrt ${{ matrix.release }}
+    name: dae / daeui packages
     needs: app
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # One build per point release: vmlinux-btf must match that release's kernel exactly.
-        release: ['25.12.5', '25.12.6']
     container:
-      image: openwrt/sdk:x86-64-v${{ matrix.release }}
+      # dae and daeui do not depend on the kernel build, so one SDK is enough.
+      image: openwrt/sdk:x86-64-v25.12.5
       options: --user root
     defaults:
       run:
@@ -59,23 +55,6 @@ jobs:
         with:
           name: daeui-bin
           path: daeui-bin
-      - name: Host tools for building vmlinux with BTF
-        run: |
-          # The SDK image is Debian bullseye; its security suite has left deb.debian.org.
-          if grep -q bullseye /etc/os-release; then
-            sed -i 's|http://deb.debian.org/debian-security|https://snapshot.debian.org/archive/debian-security/20260903T220410Z|g' /etc/apt/sources.list
-          fi
-          apt-get -o Acquire::Check-Valid-Until=false update -qq
-          apt-get install -y --no-install-recommends bc cmake libdw-dev libelf-dev zlib1g-dev unzip
-          # Distro pahole (1.20) cannot read GCC 14's DWARF 5; kernel 6.12 BTF needs a recent one.
-          curl -fsSL --retry 3 https://fedorapeople.org/~acme/dwarves/dwarves-1.28.tar.bz2 -o /tmp/dwarves.tar.bz2
-          echo '826efc0fc9237d3c1e9c01553ea387a8cb46e8dc119ff863889043f4ed54b2ae  /tmp/dwarves.tar.bz2' | sha256sum -c -
-          tar -xjf /tmp/dwarves.tar.bz2 -C /tmp
-          cmake -S /tmp/dwarves-1.28 -B /tmp/dwarves-build -D__LIB=lib -DCMAKE_BUILD_TYPE=Release
-          cmake --build /tmp/dwarves-build -j"$(nproc)"
-          cmake --install /tmp/dwarves-build
-          ldconfig
-          pahole --version
       - name: Prepare SDK
         working-directory: /builder
         run: |
@@ -84,7 +63,7 @@ jobs:
           ./scripts/feeds update base
           ./scripts/feeds install -a -p base
           mkdir -p package/daeui-pkgs
-          cp -r "$GITHUB_WORKSPACE"/packaging/openwrt/* package/daeui-pkgs/
+          cp -r "$GITHUB_WORKSPACE"/packaging/openwrt/dae "$GITHUB_WORKSPACE"/packaging/openwrt/daeui package/daeui-pkgs/
           install -m 0755 "$GITHUB_WORKSPACE/daeui-bin/daeui-linux-amd64" package/daeui-pkgs/daeui/files/daeui-x86_64
           make defconfig
       - name: Build dae and daeui
@@ -94,29 +73,101 @@ jobs:
           case "$VERSION" in [0-9]*) ;; *) VERSION="$(sed -n 's/.*"version": "\(.*\)".*/\1/p' "$GITHUB_WORKSPACE/package.json")" ;; esac
           make package/dae/compile V=s
           make package/daeui/compile V=s DAEUI_VERSION="$VERSION"
-      - name: Build vmlinux-btf
-        working-directory: /builder
-        run: make package/vmlinux-btf/compile V=s -j"$(nproc)"
       - name: Collect
         working-directory: /builder
         run: |
           mkdir -p "$GITHUB_WORKSPACE/out"
-          find bin -name '*.apk' -print
           cp "$(find bin -name 'dae-[0-9]*.apk' | head -n1)" "$GITHUB_WORKSPACE/out/dae-x86_64.apk"
           cp "$(find bin -name 'daeui-[0-9]*.apk' | head -n1)" "$GITHUB_WORKSPACE/out/daeui-x86_64.apk"
-          btf="$(find bin -name 'vmlinux-btf-[0-9]*.apk' | head -n1)"
-          kver="$(basename "$btf" | sed -E 's/^vmlinux-btf-([0-9.]+)-r[0-9]+\.apk$/\1/')"
-          cp "$btf" "$GITHUB_WORKSPACE/out/vmlinux-btf-${kver}-x86_64.apk"
           ls -la "$GITHUB_WORKSPACE/out"
       - uses: actions/upload-artifact@v4
         with:
-          name: apks-${{ matrix.release }}
+          name: apks-app
+          path: out/*.apk
+
+  btf:
+    name: vmlinux-btf for OpenWrt ${{ matrix.release }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        # The official SDK ships no kernel sources, so rebuild the release kernel from the
+        # official buildroot + buildinfo and prove it matches via the published vermagic.
+        release: ['25.12.5', '25.12.6']
+    env:
+      REL: ${{ matrix.release }}
+      DL: https://downloads.openwrt.org/releases/${{ matrix.release }}/targets/x86/64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: daeui
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+      - name: Build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
+            gettext git libncurses-dev libssl-dev python3-setuptools python3-dev rsync swig unzip zlib1g-dev file wget \
+            libelf-dev libdw-dev cmake zstd bc
+          curl -fsSL --retry 3 https://fedorapeople.org/~acme/dwarves/dwarves-1.28.tar.bz2 -o /tmp/dwarves.tar.bz2
+          echo '826efc0fc9237d3c1e9c01553ea387a8cb46e8dc119ff863889043f4ed54b2ae  /tmp/dwarves.tar.bz2' | sha256sum -c -
+          tar -xjf /tmp/dwarves.tar.bz2 -C /tmp
+          cmake -S /tmp/dwarves-1.28 -B /tmp/dwarves-build -D__LIB=lib -DCMAKE_BUILD_TYPE=Release >/dev/null
+          cmake --build /tmp/dwarves-build -j"$(nproc)" >/dev/null
+          sudo cmake --install /tmp/dwarves-build >/dev/null
+          sudo ldconfig
+          pahole --version
+      - name: Official buildroot at the release commit
+        run: |
+          curl -fsSL "$DL/version.buildinfo" -o version.buildinfo
+          curl -fsSL "$DL/feeds.buildinfo" -o feeds.buildinfo
+          curl -fsSL "$DL/config.buildinfo" -o config.buildinfo
+          curl -fsSL "$DL/profiles.json" -o profiles.json
+          commit="$(sed -E 's/^r[0-9]+-//' version.buildinfo)"
+          git clone --filter=blob:none --branch "v$REL" https://github.com/openwrt/openwrt.git openwrt
+          head="$(git -C openwrt rev-parse HEAD)"
+          case "$head" in "$commit"*) echo "openwrt at $head matches $(cat version.buildinfo)" ;; *) echo "tag v$REL is $head, expected $commit" >&2; exit 1 ;; esac
+          cp feeds.buildinfo openwrt/feeds.conf
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          cp ../config.buildinfo .config
+          # Drop release outputs that do not influence the kernel build.
+          sed -i -E '/^CONFIG_(IB|SDK|SDK_LLVM_BPF|MAKE_TOOLCHAIN|JSON_CYCLONEDX_SBOM)=y$/d' .config
+          make defconfig
+      - name: Tools and toolchain
+        working-directory: openwrt
+        run: make -j"$(nproc)" tools/install toolchain/install || make tools/install toolchain/install V=s
+      - name: Release kernel
+        working-directory: openwrt
+        run: |
+          make -j"$(nproc)" target/linux/compile || make target/linux/compile V=s
+          ours="$(cat build_dir/target-*/linux-*/linux-*/.vermagic)"
+          official="$(sed -nE 's/.*"vermagic":"([0-9a-f]+)".*/\1/p' ../profiles.json)"
+          echo "vermagic ours=$ours official=$official"
+          [ -n "$official" ] && [ "$ours" = "$official" ] || { echo "Kernel config differs from the official build; refusing to publish BTF" >&2; exit 1; }
+      - name: vmlinux-btf
+        working-directory: openwrt
+        run: |
+          cp -r ../daeui/packaging/openwrt/vmlinux-btf package/
+          make package/vmlinux-btf/compile V=s -j"$(nproc)"
+          mkdir -p ../out
+          btf="$(find bin -name 'vmlinux-btf-[0-9]*.apk' | head -n1)"
+          kver="$(basename "$btf" | sed -E 's/^vmlinux-btf-([0-9.]+)-r[0-9]+\.apk$/\1/')"
+          cp "$btf" "../out/vmlinux-btf-${kver}-x86_64.apk"
+          ls -la ../out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apks-btf-${{ matrix.release }}
           path: out/*.apk
 
   release:
     name: Publish release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: sdk
+    needs: [sdk, btf]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

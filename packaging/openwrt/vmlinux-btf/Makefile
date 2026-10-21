@@ -3,8 +3,8 @@
 # Detached BTF for the SDK's own kernel, so CO-RE eBPF (dae) loads on official
 # firmware built without CONFIG_DEBUG_INFO_BTF.
 #
-# The SDK ships the release's patched kernel tree and .config. We rebuild
-# vmlinux from a copy of it with ONLY the debug-info options changed (struct
+# Built inside the official buildroot (the SDK ships no kernel sources), which holds the
+# release's patched kernel tree and .config. We rebuild vmlinux from a copy of it with ONLY the debug-info options changed (struct
 # layouts must stay identical to the running kernel), then let pahole encode
 # the BTF. The build aborts if any other kernel option would change.
 
@@ -44,6 +44,8 @@ define Build/Prepare
 	fi
 	rm -rf $(SHADOW)
 	cp -a $(LINUX_DIR) $(SHADOW)
+	# Changing debug-info flags rebuilds everything anyway; drop the copied objects to save disk.
+	$(MAKE) -C $(SHADOW) $(KERNEL_MAKE_FLAGS) clean
 endef
 
 define Build/Compile
