@@ -61,7 +61,7 @@ define Build/Compile
 	grep -q '^CONFIG_DEBUG_INFO_BTF=y' $(SHADOW)/.config || { echo "DEBUG_INFO_BTF did not stick (pahole missing or too old?)" >&2; exit 1; }
 	$(SHADOW)/scripts/diffconfig $(PKG_BUILD_DIR)/config.orig $(SHADOW)/.config | tee $(PKG_BUILD_DIR)/config.diff
 	# A symbol that only becomes visible with BTF and stays "n" (e.g. SCHED_CLASS_EXT) was already off.
-	if grep -Ev '$(BTF_ALLOWED_DIFF)' $(PKG_BUILD_DIR)/config.diff | grep -Ev '^\+[A-Za-z0-9_]+ n$$' | grep -q .; then \
+	if grep -Ev '$(BTF_ALLOWED_DIFF)' $(PKG_BUILD_DIR)/config.diff | grep -Ev '^\+[A-Za-z0-9_]+ n' | grep -q .; then \
 		echo "Refusing to build: kernel options other than debug info changed (see above)" >&2; exit 1; \
 	fi
 	$(MAKE) -C $(SHADOW) $(KERNEL_MAKE_FLAGS) $(PKG_JOBS) vmlinux
