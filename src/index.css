@@ -8,15 +8,17 @@
   --surface: 255 255 255;
   --sunken: 237 237 237;
   --ink: 51 60 77;
-  --muted: 112 120 135;
+  --muted: 92 100 114;
   --line: 222 224 228;
   --pill: 51 60 77;
   --pill-ink: 250 251 252;
   --accent: 102 204 138;
   --accent-ink: 22 64 42;
   --glow: 246 128 103;
-  --danger: 239 83 80;
-  --info: 59 130 246;
+  --danger: 214 51 51;
+  --info: 29 78 216;
+  --success-ink: 21 107 58;
+  --warn: 176 98 8;
   --wall-a: 242 104 56;
   --wall-b: 249 170 135;
   --wall-c: 52 108 214;
@@ -40,6 +42,8 @@
   --glow: 236 120 90;
   --danger: 248 113 113;
   --info: 96 165 250;
+  --success-ink: 120 220 155;
+  --warn: 245 180 90;
   --wall-a: 150 62 34;
   --wall-b: 96 52 44;
   --wall-c: 28 58 128;
@@ -67,6 +71,40 @@ body {
   background-attachment: fixed;
 }
 
+@layer base {
+  /* One focus treatment for every control; the dark green keeps 3:1 against the glass. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--success-ink));
+    outline-offset: 2px;
+  }
+  .input:focus-visible {
+    outline: none;
+  }
+  ::selection {
+    background: rgb(var(--accent) / 0.35);
+  }
+  input,
+  textarea {
+    caret-color: rgb(var(--success-ink));
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
 @layer components {
   .glass {
     background-color: rgb(var(--surface) / var(--glass));
@@ -80,7 +118,14 @@ body {
     @apply inline-flex items-center justify-center gap-1.5 rounded-full px-4 h-8 text-sm font-medium transition disabled:opacity-40 disabled:pointer-events-none whitespace-nowrap;
   }
   .btn-primary {
-    @apply btn bg-accent text-accent-ink hover:brightness-95;
+    @apply btn bg-accent text-accent-ink hover:brightness-95 disabled:bg-ink/10 disabled:text-ink/50 disabled:opacity-100;
+  }
+  .btn-danger {
+    @apply btn bg-danger text-white hover:brightness-95;
+  }
+  /* Disruptive but not destructive (restart, stop): visible weight below the safe actions. */
+  .btn-caution {
+    @apply btn border border-danger/35 text-danger hover:bg-danger/[0.08];
   }
   .btn-ghost {
     @apply btn text-ink hover:bg-ink/[0.07];
@@ -89,10 +134,10 @@ body {
     @apply btn bg-ink/[0.07] text-ink hover:bg-ink/[0.12];
   }
   .icon-btn {
-    @apply inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/70 hover:bg-ink/[0.07] hover:text-ink transition-colors disabled:opacity-30 disabled:pointer-events-none;
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/75 hover:bg-ink/[0.07] hover:text-ink transition-colors disabled:opacity-30 disabled:pointer-events-none;
   }
   .input {
-    @apply h-8 w-full rounded-full border border-ink/[0.12] bg-surface/75 px-3.5 text-sm text-ink placeholder:text-muted/70 outline-none transition focus:border-accent focus:bg-surface;
+    @apply h-8 w-full rounded-full border border-ink/[0.12] bg-surface/75 px-3.5 text-sm text-ink placeholder:text-ink/75 outline-none transition focus:border-success-ink/60 focus:bg-surface focus-visible:ring-2 focus-visible:ring-success-ink/30;
   }
   textarea.input {
     @apply rounded-2xl;

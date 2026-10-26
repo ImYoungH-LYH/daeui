@@ -18,13 +18,13 @@ export function OutboundPicker({ value, onChange, options, advanced }: { value: 
   const rebuild = (m: boolean, mk: string) => onChange({ name: value.name, params: [...(m ? [{ key: '', val: 'must' }] : []), ...(mk ? [{ key: 'mark', val: mk }] : []), ...others] });
   return (
     <div className="flex flex-col gap-3">
-      <Select value={value.name} onChange={(v) => onChange({ ...value, name: v })} options={opts} placeholder="选择出站" />
+      <Select ariaLabel="出站" value={value.name} onChange={(v) => onChange({ ...value, name: v })} options={opts} placeholder="选择出站" />
       {advanced && (
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex items-center justify-between gap-3 rounded-[20px] bg-ink/[0.04] px-3.5 py-2.5">
             <span className="text-sm">
-              不劫持 DNS <code className="text-xs text-ink/60">(must)</code>
-              <span className="block text-xs text-ink/60">用于避免 DNS 流量回环</span>
+              不劫持 DNS <code className="text-xs text-ink/75">(must)</code>
+              <span className="block text-xs text-ink/75">用于避免 DNS 流量回环</span>
             </span>
             <Switch checked={must} onChange={(v) => rebuild(v, mark)} />
           </label>
@@ -119,7 +119,7 @@ export function RuleDialog({
             <div className="mb-2 text-sm font-medium">出站</div>
             <OutboundPicker value={rule.outbound} onChange={(outbound) => setRule({ ...rule, outbound })} options={outbounds} advanced={advancedOutbound} />
           </div>
-          {rule.conds.length > 0 && rule.outbound.name && <code className="block break-all rounded-2xl bg-ink/[0.04] px-3.5 py-2 text-xs text-ink/70">{ruleText(rule)}</code>}
+          {rule.conds.length > 0 && rule.outbound.name && <code className="block break-all rounded-2xl bg-ink/[0.04] px-3.5 py-2 text-xs text-ink/80">{ruleText(rule)}</code>}
         </div>
       ) : (
         <Field label="dae 规则语法" hint={textErr ? <span className="text-danger">{textErr}</span> : '例如：domain(geosite:cn) && l4proto(tcp) -> direct'}>

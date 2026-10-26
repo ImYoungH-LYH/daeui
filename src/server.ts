@@ -15,11 +15,13 @@ interface ServerState {
   baseline: string | null;
   /** Set when the router's config could not be parsed by the editor. */
   loadError: string | null;
+  /** When this browser last applied the config successfully (ms since epoch). */
+  appliedAt: number | null;
   boot: () => Promise<void>;
   afterAuth: () => Promise<void>;
   loadRemoteConfig: () => Promise<void>;
   refreshStatus: () => Promise<void>;
-  markSaved: (text: string) => void;
+  markSaved: (text: string, applied?: boolean) => void;
   setStatus: (s: DaeStatus) => void;
   logout: () => Promise<void>;
 }
@@ -32,6 +34,7 @@ export const useServer = create<ServerState>((set, get) => ({
   status: null,
   baseline: null,
   loadError: null,
+  appliedAt: null,
 
   boot: async () => {
     const st: AuthState | null = await detectBackend();
@@ -71,7 +74,7 @@ export const useServer = create<ServerState>((set, get) => ({
     }
   },
 
-  markSaved: (text) => set({ baseline: normalise(text), loadError: null }),
+  markSaved: (text, applied) => set({ baseline: normalise(text), loadError: null, ...(applied ? { appliedAt: Date.now() } : {}) }),
   setStatus: (s) => set({ status: s }),
 
   logout: async () => {

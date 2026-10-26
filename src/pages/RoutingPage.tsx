@@ -1,4 +1,4 @@
-import { CornerDownRight, Sparkles } from 'lucide-react';
+import { CornerDownRight, Plus, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { OutboundPicker } from '../components/RuleEditor';
 import { OutboundPill, RuleList } from '../components/RuleList';
@@ -18,7 +18,7 @@ const PRESETS: { title: string; desc: string; rules: string[] }[] = [
 ];
 
 export function RoutingPage() {
-  const { config, update } = useStore();
+  const { config, update, requestAdd } = useStore();
   const [presetOpen, setPresetOpen] = useState(false);
   const groups = config.groups.filter((g) => !g.disabled);
   const outbounds = [
@@ -39,13 +39,19 @@ export function RoutingPage() {
         title="分流规则 routing"
         desc="从上往下匹配，先命中的生效；都未命中时走兜底出站。按域名分流需要 DNS 流量经过 dae。"
         right={
-          <button className="btn-soft" onClick={() => setPresetOpen(true)}>
-            <Sparkles size={16} /> 常用规则
-          </button>
+          <div className="flex gap-2">
+            <button className="btn-soft" onClick={() => setPresetOpen(true)}>
+              <Sparkles size={16} /> 常用规则
+            </button>
+            <button className="btn-primary" onClick={requestAdd}>
+              <Plus size={16} /> 添加规则
+            </button>
+          </div>
         }
       />
       <RuleList
         listenAdd
+        hideAdd
         rules={config.routing.rules}
         onChange={(rules) => update((c) => void (c.routing.rules = rules))}
         funcs={ROUTING_FUNCS}
@@ -54,10 +60,10 @@ export function RoutingPage() {
         newRule={() => ({ conds: [{ name: 'domain', not: false, params: [{ key: 'geosite', val: '' }] }], outbound: { name: defaultOut, params: [] }, disabled: false })}
         footer={
           <div className="card flex flex-wrap items-center gap-3 border border-dashed border-ink/10 px-4 py-3">
-            <CornerDownRight size={18} className="text-ink/60" />
+            <CornerDownRight size={18} className="text-ink/75" />
             <div className="min-w-0 flex-1">
               <div className="font-medium">兜底出站 fallback</div>
-              <div className="text-[12px] text-ink/60">以上规则都未命中时使用</div>
+              <div className="text-[12px] text-ink/75">以上规则都未命中时使用</div>
             </div>
             <OutboundPill name={config.routing.fallback.name} label={outboundText(config.routing.fallback)} />
             <div className="w-full sm:w-72">
@@ -67,14 +73,14 @@ export function RoutingPage() {
         }
       />
       <Modal open={presetOpen} title="添加常用规则" onClose={() => setPresetOpen(false)}>
-        <p className="mb-3 text-sm text-ink/60">规则会追加到列表末尾，可拖动调整顺序。</p>
+        <p className="mb-3 text-sm text-ink/75">规则会追加到列表末尾，可拖动调整顺序。</p>
         <div className="flex flex-col gap-2">
           {PRESETS.map((p) => (
             <button key={p.title} className="rounded-2xl border border-ink/10 px-4 py-3 text-left transition-colors hover:border-accent hover:bg-accent/5" onClick={() => addPreset(p.rules)}>
               <div className="font-medium">{p.title}</div>
-              <div className="text-xs text-ink/60">{p.desc}</div>
+              <div className="text-xs text-ink/75">{p.desc}</div>
               {p.rules.map((r) => (
-                <code key={r} className="mt-1 block text-xs text-ink/60">{r}</code>
+                <code key={r} className="mt-1 block text-xs text-ink/75">{r}</code>
               ))}
             </button>
           ))}

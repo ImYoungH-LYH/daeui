@@ -21,7 +21,7 @@ function highlight(line: string): ReactNode[] {
   for (const m of line.matchAll(TOKEN_RE)) {
     if (m.index! > last) out.push(line.slice(last, m.index));
     const [text, comment, str, op, fn] = m;
-    const cls = comment ? (text.startsWith('#@off') ? 'text-ink/40 line-through' : 'text-ink/60') : str ? 'text-[rgb(28,130,72)] dark:text-accent' : op ? 'text-glow font-semibold' : fn ? 'text-info' : 'text-ink font-semibold';
+    const cls = comment ? (text.startsWith('#@off') ? 'text-ink/60 line-through' : 'text-ink/75') : str ? 'text-success-ink' : op ? 'text-warn font-semibold' : fn ? 'text-info' : 'text-ink font-semibold';
     out.push(
       <span key={m.index} className={cls}>
         {text}
@@ -57,11 +57,11 @@ export function PreviewPage() {
         <div className="min-w-0 flex-1 text-sm">
           <div className="font-medium">config.dae</div>
           {routerMode ? (
-            <div className="text-xs text-ink/60">
+            <div className="text-xs text-ink/75">
               这是点击“应用到 dae”时将写入 <code>{configPath}</code> 的内容（先经 <code>dae validate</code> 校验，权限 0600）。
             </div>
           ) : (
-            <div className="text-xs text-ink/60">
+            <div className="text-xs text-ink/75">
               放到 <code>/usr/local/etc/dae/config.dae</code>（或你的配置目录），dae 要求权限为 0600 或 0640：
               <code className="ml-1">chmod 0600 config.dae</code>，然后执行 <code>dae reload</code> 热重载。
             </div>
@@ -78,7 +78,7 @@ export function PreviewPage() {
         <pre className="py-3 font-mono text-[12px] leading-6">
           {lines.map((l, i) => (
             <Fragment key={i}>
-              <span className="inline-block w-12 select-none pr-4 text-right text-ink/40">{i + 1}</span>
+              <span className="inline-block w-12 select-none pr-4 text-right text-ink/60">{i + 1}</span>
               {highlight(l)}
               {'\n'}
             </Fragment>

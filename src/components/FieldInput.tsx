@@ -8,7 +8,7 @@ import { Select, Switch, cx } from './ui';
 export function Tip({ children }: { children: ReactNode }) {
   return (
     <span className="group/tip relative inline-flex">
-      <button type="button" className="text-ink/40 hover:text-ink/70 focus:text-ink/70" aria-label="说明">
+      <button type="button" className="text-ink/60 hover:text-ink/80 focus:text-ink/80" aria-label="说明">
         <CircleHelp size={14} />
       </button>
       <span className="pointer-events-none invisible absolute left-1/2 top-full z-30 mt-1.5 w-72 -translate-x-1/2 rounded-2xl bg-pill px-3 py-2 text-xs leading-relaxed text-pill-ink opacity-0 shadow-pop transition-opacity group-focus-within/tip:visible group-focus-within/tip:opacity-100 group-hover/tip:visible group-hover/tip:opacity-100">
@@ -40,6 +40,7 @@ export function FieldInput({ spec, value, onChange }: { spec: FieldSpec; value: 
     control = (
       <Select
         className={WIDTH.enum}
+        ariaLabel={spec.label}
         value={value ?? ''}
         onChange={(v) => onChange(v === '' ? undefined : v)}
         placeholder={spec.default !== undefined ? `默认 ${spec.default}` : (spec.placeholder ?? '不设置')}
@@ -49,6 +50,7 @@ export function FieldInput({ spec, value, onChange }: { spec: FieldSpec; value: 
   } else {
     control = (
       <input
+        aria-label={spec.label}
         className={cx('input', WIDTH[spec.type], spec.type !== 'string' && 'font-mono text-[12px]', spec.type === 'int' || spec.type === 'duration' ? 'text-center' : '')}
         inputMode={spec.type === 'int' ? 'numeric' : undefined}
         value={value ?? ''}
@@ -66,7 +68,7 @@ export function FieldInput({ spec, value, onChange }: { spec: FieldSpec; value: 
           <code className="mb-1 block font-mono text-[11px] opacity-70">{spec.key}</code>
           {spec.desc}
         </Tip>
-        {set && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" title="已修改" />}
+        {set && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-info" title="已修改（会写入配置）" aria-label="已修改" />}
       </div>
       <div className={cx('flex items-center justify-end gap-1', wide && 'min-w-0 flex-1')}>
         {set && (

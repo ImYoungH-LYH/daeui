@@ -1,10 +1,11 @@
 import { ArrowDown, Link2, Plus, Rss, Server, X } from 'lucide-react';
 import { useState } from 'react';
 import { useAddSignal } from '../components/FieldInput';
+import { StarterTemplateButton } from '../components/feedback';
 import { ItemCard, SortableList } from '../components/SortableList';
 import { Empty, Field, Modal, SectionTitle } from '../components/ui';
 import { joinChain, linkInfo, splitChain } from '../lib/links';
-import { type Link, uid } from '../lib/dae/model';
+import { type Link, starterConfig, uid } from '../lib/dae/model';
 import { useStore } from '../store';
 
 type Kind = 'subscription' | 'node';
@@ -39,7 +40,7 @@ const TEXT = {
 const TAG_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 export function LinksPage({ kind }: { kind: Kind }) {
-  const { config, update } = useStore();
+  const { config, update, replace } = useStore();
   const t = TEXT[kind];
   const list = kind === 'subscription' ? config.subscriptions : config.nodes;
   const [editing, setEditing] = useState<Link | null>(null);
@@ -69,7 +70,16 @@ export function LinksPage({ kind }: { kind: Kind }) {
         }
       />
       {list.length === 0 ? (
-        <Empty icon={kind === 'subscription' ? <Rss size={32} /> : <Server size={32} />} title={t.empty} action={<button className="btn-primary" onClick={openAdd}><Plus size={16} />{t.add}</button>} />
+        <Empty icon={kind === 'subscription' ? <Rss size={32} /> : <Server size={32} />} title={t.empty} action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <button className="btn-primary" onClick={openAdd}>
+                <Plus size={16} />
+                {t.add}
+              </button>
+              <StarterTemplateButton onLoad={() => replace(starterConfig())} />
+            </div>
+          }
+        />
       ) : (
         <SortableList
           items={list}
@@ -81,6 +91,7 @@ export function LinksPage({ kind }: { kind: Kind }) {
               <ItemCard
                 key={l.id}
                 id={l.id}
+                name={l.tag || info.name || l.value}
                 disabled={l.disabled}
                 icon={kind === 'subscription' ? <Rss size={18} /> : hops.length > 1 ? <Link2 size={18} /> : <Server size={18} />}
                 title={l.tag || info.name || (kind === 'subscription' ? '未命名订阅' : '未命名节点')}
@@ -197,13 +208,13 @@ function LinkDialog({
                 {hops.map((h, i) => (
                   <div key={i}>
                     {i > 0 && (
-                      <div className="flex justify-center py-0.5 text-ink/60">
+                      <div className="flex justify-center py-0.5 text-ink/75">
                         <ArrowDown size={14} />
                       </div>
                     )}
                     <div className="flex items-center gap-2">
-                      {hops.length > 1 && <span className="w-12 shrink-0 text-xs text-ink/60">{i === 0 ? '前置' : i === hops.length - 1 ? '出口' : `第 ${i + 1} 跳`}</span>}
-                      <input className="input font-mono" value={h} placeholder={t.placeholder} onChange={(e) => setHops(hops.map((x, j) => (j === i ? e.target.value : x)))} />
+                      {hops.length > 1 && <span className="w-12 shrink-0 text-xs text-ink/75">{i === 0 ? '前置' : i === hops.length - 1 ? '出口' : `第 ${i + 1} 跳`}</span>}
+                      <input className="input font-mono" aria-label={hops.length > 1 ? `第 ${i + 1} 跳链接` : t.linkLabel} value={h} placeholder={t.placeholder} onChange={(e) => setHops(hops.map((x, j) => (j === i ? e.target.value : x)))} />
                       {hops.length > 1 && (
                         <button className="icon-btn hover:text-danger" onClick={() => setHops(hops.filter((_, j) => j !== i))} aria-label="移除">
                           <X size={16} />
@@ -213,7 +224,7 @@ function LinkDialog({
                   </div>
                 ))}
               </div>
-              <button className="btn-ghost mt-2 !h-8 !px-2 text-[12px] text-ink/60" onClick={() => setHops([...hops, ''])}>
+              <button className="btn-ghost mt-2 !h-8 !px-2 text-[12px] text-ink/75" onClick={() => setHops([...hops, ''])}>
                 <Plus size={15} /> 添加一跳（链式代理）
               </button>
             </div>

@@ -1,6 +1,7 @@
 import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { FeedbackHost } from './components/feedback';
 import { AuthPage } from './pages/AuthPage';
 import { useServer } from './server';
 import './index.css';
@@ -11,8 +12,12 @@ function Root() {
     boot();
   }, [boot]);
   if (phase === 'detecting') return null;
-  if (phase === 'setup' || phase === 'login') return <AuthPage mode={phase} />;
-  return <App />;
+  return (
+    <>
+      {phase === 'setup' || phase === 'login' ? <AuthPage mode={phase} /> : <App />}
+      <FeedbackHost />
+    </>
+  );
 }
 
 createRoot(document.getElementById('root')!).render(

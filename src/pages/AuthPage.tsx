@@ -35,13 +35,13 @@ export function AuthPage({ mode }: { mode: 'setup' | 'login' }) {
           <span className="text-lg font-bold tracking-tight">DAEUI</span>
         </div>
         <h1 className="mt-4 text-lg font-semibold">{setup ? '设置管理密码' : '密码登录'}</h1>
-        <p className="mb-4 mt-1 text-xs text-ink/60">{setup ? '首次使用，请设置访问本面板的密码（至少 6 位）。' : '请输入访问密码后继续。'}</p>
-        <label className="label">{setup ? '新密码' : '访问密码'}</label>
-        <input className="input" type="password" autoComplete={setup ? 'new-password' : 'current-password'} autoFocus value={pw} onChange={(e) => setPw(e.target.value)} />
+        <p className="mb-4 mt-1 text-xs text-ink/75">{setup ? '首次使用，请设置访问本面板的密码（至少 6 位）。' : '请输入访问密码后继续。'}</p>
+        <label className="label" htmlFor="pw">{setup ? '新密码' : '访问密码'}</label>
+        <input id="pw" className="input" type="password" autoComplete={setup ? 'new-password' : 'current-password'} autoFocus value={pw} onChange={(e) => setPw(e.target.value)} />
         {setup && (
           <>
-            <label className="label mt-3">确认密码</label>
-            <input className="input" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+            <label className="label mt-3" htmlFor="pw2">确认密码</label>
+            <input id="pw2" className="input" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
           </>
         )}
         {err && <div className="mt-3 rounded-xl bg-danger/10 px-3 py-2 text-xs text-danger">{err}</div>}

@@ -2,15 +2,16 @@ import { ChevronDown, Layers, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { CondEditor } from '../components/CondEditor';
 import { FieldInput, useAddSignal } from '../components/FieldInput';
+import { StarterTemplateButton, confirmAction } from '../components/feedback';
 import { ItemCard, SortableList } from '../components/SortableList';
 import { Empty, Field, Modal, SectionTitle, Select, cx } from '../components/ui';
-import { type Filter, type Group, uid } from '../lib/dae/model';
+import { type Filter, type Group, starterConfig, uid } from '../lib/dae/model';
 import { GROUP_FILTER_FUNCS, GROUP_OVERRIDE_FIELDS, POLICIES } from '../lib/dae/schema';
 import { condsText, describeCond } from '../lib/dae/text';
 import { useStore } from '../store';
 
 export function GroupPage() {
-  const { config, update } = useStore();
+  const { config, update, replace } = useStore();
   const [editing, setEditing] = useState<{ group: Group; isNew: boolean } | null>(null);
 
   const openAdd = () => setEditing({ isNew: true, group: { id: uid(), name: '', filters: [], policy: { name: 'min_moving_avg', params: [] }, overrides: {}, disabled: false } });
@@ -30,7 +31,16 @@ export function GroupPage() {
         }
       />
       {config.groups.length === 0 ? (
-        <Empty icon={<Layers size={32} />} title="还没有节点组" desc="至少需要一个节点组作为代理出站。" action={<button className="btn-primary" onClick={openAdd}><Plus size={16} />添加节点组</button>} />
+        <Empty icon={<Layers size={32} />} title="还没有节点组" desc="至少需要一个节点组作为代理出站。" action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <button className="btn-primary" onClick={openAdd}>
+                <Plus size={16} />
+                添加节点组
+              </button>
+              <StarterTemplateButton onLoad={() => replace(starterConfig())} />
+            </div>
+          }
+        />
       ) : (
         <SortableList
           items={config.groups}
@@ -43,6 +53,7 @@ export function GroupPage() {
               <ItemCard
                 key={g.id}
                 id={g.id}
+                name={g.name}
                 disabled={g.disabled}
                 icon={<Layers size={18} />}
                 title={g.name || '未命名'}
@@ -68,7 +79,19 @@ export function GroupPage() {
                 }
                 onToggle={() => update((c) => void c.groups.forEach((x) => x.id === g.id && (x.disabled = !x.disabled)))}
                 onEdit={() => setEditing({ group: g, isNew: false })}
-                onDelete={() => update((c) => void (c.groups = c.groups.filter((x) => x.id !== g.id)))}
+                onDelete={async () => {
+                  if (
+                    n > 0 &&
+                    !(await confirmAction({
+                      title: `删除节点组 ${g.name}？`,
+                      body: `它被 ${n} 处分流规则或兜底出站引用。删除后这些引用会失效，配置将无法通过校验，需要再改为其他出站。可以用撤销恢复。`,
+                      confirmLabel: '仍然删除',
+                      danger: true,
+                    }))
+                  )
+                    return;
+                  update((c) => void (c.groups = c.groups.filter((x) => x.id !== g.id)));
+                }}
               />
             );
           }}
@@ -158,10 +181,10 @@ function GroupDialog({ initial, isNew, onClose, onSave }: { initial: Group; isNe
       <div className="mt-5">
         <div className="mb-2 flex items-baseline justify-between">
           <span className="text-sm font-medium">节点筛选 filter</span>
-          <span className="text-xs text-ink/60">不添加则使用全部节点；多条筛选之间是“或”关系</span>
+          <span className="text-xs text-ink/75">不添加则使用全部节点；多条筛选之间是“或”关系</span>
         </div>
         {subs.some((s) => s.tag) && (
-          <div className="mb-2 text-xs text-ink/60">
+          <div className="mb-2 text-xs text-ink/75">
             可用订阅标签：{subs.filter((s) => s.tag).map((s) => <code key={s.id} className="mr-1.5">{s.tag}</code>)}
           </div>
         )}
@@ -171,8 +194,9 @@ function GroupDialog({ initial, isNew, onClose, onSave }: { initial: Group; isNe
               <div className="mb-3 flex items-center justify-between gap-2">
                 <span className="text-[12px] font-medium">{i === 0 ? '筛选 1' : `或 筛选 ${i + 1}`}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-ink/60">延迟偏移</span>
+                  <span className="text-xs text-ink/75">延迟偏移</span>
                   <input
+                    aria-label="延迟偏移 add_latency"
                     className="input !h-8 !w-28 font-mono text-xs"
                     placeholder="如 -500ms"
                     value={latency(f)}
@@ -188,7 +212,7 @@ function GroupDialog({ initial, isNew, onClose, onSave }: { initial: Group; isNe
                 </div>
               </div>
               <CondEditor conds={f.conds} funcs={GROUP_FILTER_FUNCS} onChange={(conds) => setFilter(i, { conds })} />
-              {f.conds.length > 0 && <code className="mt-3 block truncate rounded-xl bg-ink/[0.04] px-2.5 py-1.5 text-xs text-ink/60">filter: {condsText(f.conds)}</code>}
+              {f.conds.length > 0 && <code className="mt-3 block truncate rounded-xl bg-ink/[0.04] px-2.5 py-1.5 text-xs text-ink/75">filter: {condsText(f.conds)}</code>}
             </div>
           ))}
           <button

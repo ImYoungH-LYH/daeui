@@ -9,27 +9,27 @@ import { ItemCard, SortableList } from './SortableList';
 import { cx } from './ui';
 
 const ICONS: Record<string, ReactNode> = {
-  domain: <Globe size={18} className="text-sky-500" />,
-  qname: <Globe size={18} className="text-sky-500" />,
-  dip: <Network size={18} className="text-violet-500" />,
-  sip: <Network size={18} className="text-fuchsia-500" />,
-  ip: <Network size={18} className="text-violet-500" />,
-  dport: <Hash size={18} className="text-amber-500" />,
-  sport: <Hash size={18} className="text-amber-500" />,
-  l4proto: <Route size={18} className="text-teal-500" />,
-  ipversion: <Route size={18} className="text-teal-500" />,
-  pname: <Cpu size={18} className="text-slate-500" />,
-  mac: <Wifi size={18} className="text-pink-500" />,
-  sub: <Server size={18} className="text-orange-500" />,
-  node: <Server size={18} className="text-indigo-500" />,
-  subnode: <Server size={18} className="text-indigo-500" />,
-  upstream: <ShieldCheck size={18} className="text-emerald-500" />,
+  domain: <Globe size={18} className="text-sky-600 dark:text-sky-400" />,
+  qname: <Globe size={18} className="text-sky-600 dark:text-sky-400" />,
+  dip: <Network size={18} className="text-violet-600 dark:text-violet-400" />,
+  sip: <Network size={18} className="text-fuchsia-600 dark:text-fuchsia-400" />,
+  ip: <Network size={18} className="text-violet-600 dark:text-violet-400" />,
+  dport: <Hash size={18} className="text-amber-600 dark:text-amber-400" />,
+  sport: <Hash size={18} className="text-amber-600 dark:text-amber-400" />,
+  l4proto: <Route size={18} className="text-teal-600 dark:text-teal-400" />,
+  ipversion: <Route size={18} className="text-teal-600 dark:text-teal-400" />,
+  pname: <Cpu size={18} className="text-slate-600 dark:text-slate-400" />,
+  mac: <Wifi size={18} className="text-pink-600 dark:text-pink-400" />,
+  sub: <Server size={18} className="text-orange-600 dark:text-orange-400" />,
+  node: <Server size={18} className="text-indigo-600 dark:text-indigo-400" />,
+  subnode: <Server size={18} className="text-indigo-600 dark:text-indigo-400" />,
+  upstream: <ShieldCheck size={18} className="text-emerald-600 dark:text-emerald-400" />,
 };
 
 export function outboundTone(name: string): string {
   if (name === 'block' || name === 'reject') return 'bg-danger/10 text-danger';
-  if (name === 'direct' || name === 'must_direct' || name === 'accept' || name === 'asis') return 'bg-accent/20 text-[rgb(28,130,72)] dark:text-accent';
-  return 'bg-info/10 text-[rgb(37,99,235)] dark:text-info';
+  if (name === 'direct' || name === 'must_direct' || name === 'accept' || name === 'asis') return 'bg-accent/20 text-success-ink';
+  return 'bg-info/10 text-info';
 }
 
 export function OutboundPill({ name, label }: { name: string; label?: string }) {
@@ -49,6 +49,7 @@ export function RuleList({
   advancedOutbound,
   newRule,
   listenAdd,
+  hideAdd,
   footer,
 }: {
   rules: Rule[];
@@ -57,8 +58,10 @@ export function RuleList({
   outbounds: OutboundOption[];
   advancedOutbound?: boolean;
   newRule: () => Omit<Rule, 'id'>;
-  /** Open the add dialog when the header's green "+" is pressed. */
+  /** Open the add dialog when the page header calls store.requestAdd(). */
   listenAdd?: boolean;
+  /** Hide the list's own add button when the page header already has one. */
+  hideAdd?: boolean;
   footer?: ReactNode;
 }) {
   const [editing, setEditing] = useState<{ rule: Rule; isNew: boolean } | null>(null);
@@ -75,11 +78,12 @@ export function RuleList({
             <ItemCard
               key={r.id}
               id={r.id}
+              name={`规则 ${i + 1}`}
               disabled={r.disabled}
-              icon={ICONS[r.conds[0]?.name] ?? <Split size={18} className="text-ink/60" />}
+              icon={ICONS[r.conds[0]?.name] ?? <Split size={18} className="text-ink/75" />}
               title={
                 <span className="flex items-center gap-2">
-                  <span className="shrink-0 font-mono text-xs text-ink/40">{i + 1}</span>
+                  <span className="shrink-0 font-mono text-xs text-ink/65">{i + 1}</span>
                   <span className="truncate">{r.conds.map((c) => describeCond(c, funcs)).join(' 且 ')}</span>
                 </span>
               }
@@ -93,9 +97,11 @@ export function RuleList({
         />
       )}
       {footer}
-      <button className="btn-soft self-start" onClick={openAdd}>
-        <Plus size={16} /> 添加规则
-      </button>
+      {!hideAdd && (
+        <button className="btn-soft self-start" onClick={openAdd}>
+          <Plus size={16} /> 添加规则
+        </button>
+      )}
       {editing && (
         <RuleDialog
           title={editing.isNew ? '添加规则' : '修改规则'}

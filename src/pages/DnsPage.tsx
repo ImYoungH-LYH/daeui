@@ -1,6 +1,7 @@
 import { CornerDownRight, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { FieldInput } from '../components/FieldInput';
+import { confirmAction } from '../components/feedback';
 import { RuleList } from '../components/RuleList';
 import { ItemCard, SortableList } from '../components/SortableList';
 import { Field, Modal, SectionTitle, Select, Switch } from '../components/ui';
@@ -32,7 +33,7 @@ export function DnsPage() {
           }
         />
         {dns.upstreams.length === 0 ? (
-          <div className="card px-4 py-6 text-center text-sm text-ink/60">还没有上游</div>
+          <div className="card px-4 py-6 text-center text-sm text-ink/75">还没有上游</div>
         ) : (
           <SortableList
             items={dns.upstreams}
@@ -41,6 +42,7 @@ export function DnsPage() {
               <ItemCard
                 key={u.id}
                 id={u.id}
+                name={u.tag || '上游'}
                 disabled={u.disabled}
                 icon={<ShieldCheck size={18} />}
                 title={u.tag || '未命名'}
@@ -48,7 +50,23 @@ export function DnsPage() {
                 subtitle={<span className="font-mono">{u.value}</span>}
                 onToggle={() => update((c) => void c.dns.upstreams.forEach((x) => x.id === u.id && (x.disabled = !x.disabled)))}
                 onEdit={() => setEditing({ link: u, isNew: false })}
-                onDelete={() => update((c) => void (c.dns.upstreams = c.dns.upstreams.filter((x) => x.id !== u.id)))}
+                onDelete={async () => {
+                  const refs =
+                    [...dns.request.rules, ...(dns.response.enabled ? dns.response.rules : [])].filter((r) => r.outbound.name === u.tag).length +
+                    (dns.request.fallback === u.tag ? 1 : 0) +
+                    (dns.response.enabled && dns.response.fallback === u.tag ? 1 : 0);
+                  if (
+                    refs > 0 &&
+                    !(await confirmAction({
+                      title: `删除上游 ${u.tag}？`,
+                      body: `它被 ${refs} 处 DNS 规则或兜底引用。删除后这些引用会失效，配置将无法通过校验。可以用撤销恢复。`,
+                      confirmLabel: '仍然删除',
+                      danger: true,
+                    }))
+                  )
+                    return;
+                  update((c) => void (c.dns.upstreams = c.dns.upstreams.filter((x) => x.id !== u.id)));
+                }}
               />
             )}
           />
@@ -91,7 +109,7 @@ export function DnsPage() {
       </section>
 
       <section className="card px-4 pb-4 pt-3.5">
-        <h3 className="mb-1 text-[14px] font-semibold">缓存与监听</h3>
+        <h2 className="mb-1 text-[15px] font-semibold">缓存与监听</h2>
         <div className="grid gap-x-10 lg:grid-cols-2">
           {DNS_FIELDS.map((f) => (
             <FieldInput
@@ -108,12 +126,12 @@ export function DnsPage() {
           ))}
         </div>
         <h3 className="mb-1 mt-5 text-[14px] font-semibold">固定 TTL fixed_domain_ttl</h3>
-        <p className="mb-3 text-xs text-ink/60">为指定域名设置固定 TTL，0 表示每次都向上游查询、不缓存。</p>
+        <p className="mb-3 text-xs text-ink/75">为指定域名设置固定 TTL，0 表示每次都向上游查询、不缓存。</p>
         <div className="flex flex-col gap-2">
           {dns.fixedTtl.map((t) => (
             <div key={t.id} className="flex items-center gap-2">
-              <input className="input font-mono" value={t.domain} placeholder="ddns.example.org" onChange={(e) => update((c) => void c.dns.fixedTtl.forEach((x) => x.id === t.id && (x.domain = e.target.value)))} />
-              <input className="input !w-32 font-mono" value={t.ttl} placeholder="TTL" onChange={(e) => update((c) => void c.dns.fixedTtl.forEach((x) => x.id === t.id && (x.ttl = e.target.value)))} />
+              <input className="input font-mono" aria-label="域名" value={t.domain} placeholder="ddns.example.org" onChange={(e) => update((c) => void c.dns.fixedTtl.forEach((x) => x.id === t.id && (x.domain = e.target.value)))} />
+              <input className="input !w-32 font-mono" aria-label="TTL（秒）" value={t.ttl} placeholder="TTL" onChange={(e) => update((c) => void c.dns.fixedTtl.forEach((x) => x.id === t.id && (x.ttl = e.target.value)))} />
               <button className="icon-btn hover:text-danger" onClick={() => update((c) => void (c.dns.fixedTtl = c.dns.fixedTtl.filter((x) => x.id !== t.id)))} aria-label="删除">
                 <Trash2 size={16} />
               </button>
@@ -156,13 +174,13 @@ function Fallback({ value, options, onChange }: { value: string; options: { valu
   const opts = options.some((o) => o.value === value) ? options : [...options, { value, label: `${value}（未定义）` }];
   return (
     <div className="card flex flex-wrap items-center gap-3 border border-dashed border-ink/10 px-4 py-3">
-      <CornerDownRight size={18} className="text-ink/60" />
+      <CornerDownRight size={18} className="text-ink/75" />
       <div className="min-w-0 flex-1">
         <div className="font-medium">兜底 fallback</div>
-        <div className="text-[12px] text-ink/60">以上规则都未命中时使用</div>
+        <div className="text-[12px] text-ink/75">以上规则都未命中时使用</div>
       </div>
       <div className="w-full sm:w-72">
-        <Select value={value} onChange={onChange} options={opts} />
+        <Select ariaLabel="兜底上游" value={value} onChange={onChange} options={opts} />
       </div>
     </div>
   );

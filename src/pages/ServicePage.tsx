@@ -1,6 +1,7 @@
 import { CircleCheck, CirclePause, CirclePlay, Download, KeyRound, LogOut, Pause, Play, RefreshCw, RotateCw, Square, TriangleAlert, Zap } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Tip } from '../components/FieldInput';
+import { confirmAction, toast } from '../components/feedback';
 import { Field, Modal, Switch, cx } from '../components/ui';
 import { type ServiceAction, api } from '../lib/api';
 import { useServer } from '../server';
@@ -33,12 +34,13 @@ function fmtDate(t?: string) {
   return new Date(t).toLocaleString();
 }
 
-const ACTIONS: { id: ServiceAction; label: string; icon: ReactNode; tip: string; when: 'running' | 'stopped' | 'any' }[] = [
+// `confirm` marks actions that interrupt traffic for the whole network; they ask first and look weaker.
+const ACTIONS: { id: ServiceAction; label: string; icon: ReactNode; tip: string; when: 'running' | 'stopped' | 'any'; confirm?: string }[] = [
   { id: 'start', label: '启动', icon: <Play size={15} />, tip: '启动 dae 服务', when: 'stopped' },
   { id: 'reload', label: '热重载', icon: <Zap size={15} />, tip: '重新读取配置，不中断已建立的连接', when: 'running' },
-  { id: 'restart', label: '重启', icon: <RotateCw size={15} />, tip: '完全重启 dae，会中断现有连接', when: 'running' },
-  { id: 'suspend', label: '挂起', icon: <Pause size={15} />, tip: '进入空载状态（所有流量直连），用热重载恢复', when: 'running' },
-  { id: 'stop', label: '停止', icon: <Square size={14} />, tip: '停止 dae 服务', when: 'running' },
+  { id: 'restart', label: '重启', icon: <RotateCw size={15} />, tip: '完全重启 dae，会中断现有连接', when: 'running', confirm: '重启会断开所有已建立的连接（下载、视频、SSH 等），数秒后恢复。只是改了配置的话，用“热重载”即可，不会断线。' },
+  { id: 'suspend', label: '挂起', icon: <Pause size={15} />, tip: '进入空载状态（所有流量直连），用热重载恢复', when: 'running', confirm: '挂起后 dae 不再分流，所有流量直连（代理暂时失效），直到你点“热重载”恢复。' },
+  { id: 'stop', label: '停止', icon: <Square size={14} />, tip: '停止 dae 服务', when: 'running', confirm: '停止后代理和分流全部失效，所有流量直连；已建立的代理连接会断开。' },
 ];
 
 export function ServicePage() {
@@ -53,13 +55,15 @@ export function ServicePage() {
     return () => clearInterval(t);
   }, [refreshStatus]);
 
-  const act = async (a: ServiceAction, label: string) => {
+  const act = async (a: ServiceAction, label: string, confirmText?: string) => {
+    if (confirmText && !(await confirmAction({ title: `${label} dae？`, body: confirmText, confirmLabel: label, danger: true }))) return;
     setBusy(a);
     setMsg(null);
     try {
       const r = await api.action(a);
       setStatus(r.status);
-      setMsg({ ok: true, text: `${label}完成`, output: r.output || undefined });
+      if (r.output) setMsg({ ok: true, text: `${label}完成`, output: r.output });
+      else toast(`${label}完成`);
     } catch (e) {
       setMsg({ ok: false, text: `${label}失败：${(e as Error).message}`, output: (e as { output?: string }).output });
       refreshStatus();
@@ -79,12 +83,12 @@ export function ServicePage() {
         {
           label: '内核 BTF',
           value: s.btf ? (
-            <span className="text-[rgb(28,130,72)] dark:text-accent">{s.btf === 'builtin' ? '内核自带' : '外置 vmlinux-btf'}</span>
+            <span className="text-success-ink">{s.btf === 'builtin' ? '内核自带' : '外置 vmlinux-btf'}</span>
           ) : (
             <span className="text-danger">缺失，dae 无法启动</span>
           ),
         },
-        { label: '配置文件', value: <code className="text-xs">{s.configPath}{s.configExists ? '' : '（不存在）'}</code> },
+        { label: '配置文件', value: <code className="text-xs" title={s.configPath}>{s.configPath}{s.configExists ? '' : '（不存在）'}</code> },
       ]
     : [];
 
@@ -92,9 +96,9 @@ export function ServicePage() {
     <div className="flex flex-col gap-2">
       <section className="card px-4 pb-4 pt-3.5">
         <div className="mb-3 flex flex-wrap items-center gap-3">
-          <h3 className="text-[14px] font-semibold">dae 服务</h3>
+          <h2 className="text-[15px] font-semibold">dae 服务</h2>
           {s && (
-            <span className={cx('inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium', s.running ? 'bg-accent/20 text-[rgb(28,130,72)] dark:text-accent' : 'bg-ink/[0.07] text-ink/70')}>
+            <span className={cx('inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium', s.running ? 'bg-accent/20 text-success-ink' : 'bg-ink/[0.07] text-ink/80')}>
               {s.running ? <CirclePlay size={13} /> : <CirclePause size={13} />}
               {s.running ? '运行中' : '已停止'}
             </span>
@@ -117,27 +121,37 @@ export function ServicePage() {
         )}
         <div className="grid gap-x-10 sm:grid-cols-2">
           {rows.map((r) => (
-            <div key={r.label} className="flex min-h-[38px] items-center justify-between gap-3 border-b border-ink/10 py-1.5">
-              <span className="text-ink/70">{r.label}</span>
-              <span className="min-w-0 truncate text-right">{r.value}</span>
+            <div key={r.label} className="flex min-h-[38px] min-w-0 flex-col justify-center gap-0.5 border-b border-ink/10 py-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <span className="shrink-0 whitespace-nowrap text-ink/75">{r.label}</span>
+              <span className="min-w-0 max-w-full truncate sm:text-right">{r.value}</span>
             </div>
           ))}
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {ACTIONS.filter((a) => a.when === 'any' || (s?.running ? a.when === 'running' : a.when === 'stopped')).map((a) => (
-            <button key={a.id} className={a.id === 'start' || a.id === 'reload' ? 'btn-primary' : 'btn-soft'} disabled={!!busy || !s?.installed} onClick={() => act(a.id, a.label)} title={a.tip}>
-              {busy === a.id ? <RefreshCw size={15} className="animate-spin" /> : a.icon}
-              {a.label}
-            </button>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {ACTIONS.filter((a) => a.when === 'any' || (s?.running ? a.when === 'running' : a.when === 'stopped')).map((a, i, list) => (
+            <span key={a.id} className="contents">
+              {/* Separate the actions that cut connections from the safe ones. */}
+              {a.confirm && !list[i - 1]?.confirm && <span className="mx-1 hidden h-5 w-px bg-ink/15 sm:block" aria-hidden />}
+              <button
+                className={a.id === 'start' || a.id === 'reload' ? 'btn-primary' : a.id === 'suspend' ? 'btn-soft' : 'btn-caution'}
+                disabled={!!busy || !s?.installed}
+                onClick={() => act(a.id, a.label, a.confirm)}
+                title={a.tip}
+              >
+                {busy === a.id ? <RefreshCw size={15} className="animate-spin" /> : a.icon}
+                {a.label}
+              </button>
+            </span>
           ))}
         </div>
+        <p className="mt-2 text-xs text-ink/75">改了配置用“热重载”即可，不会断开现有连接；状态每 5 秒自动刷新。</p>
         {msg && (
-          <div className={cx('mt-3 rounded-2xl px-3.5 py-2.5 text-xs', msg.ok ? 'bg-accent/15 text-[rgb(28,130,72)] dark:text-accent' : 'bg-danger/10 text-danger')}>
+          <div className={cx('mt-3 rounded-2xl px-3.5 py-2.5 text-xs', msg.ok ? 'bg-accent/15 text-success-ink' : 'bg-danger/10 text-danger')}>
             <div className="flex items-center gap-1.5">
               {msg.ok ? <CircleCheck size={14} /> : <TriangleAlert size={14} />}
               {msg.text}
             </div>
-            {msg.output && <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap font-mono text-[11px] text-ink/80">{msg.output}</pre>}
+            {msg.output && <pre className="mt-2 max-h-[45vh] overflow-auto whitespace-pre-wrap font-mono text-[12px] text-ink/85">{msg.output}</pre>}
           </div>
         )}
       </section>
@@ -145,8 +159,8 @@ export function ServicePage() {
       <div className="grid gap-2 lg:grid-cols-2">
         <GeoCard running={!!s?.running} geoip={s?.geoip.modTime} geosite={s?.geosite.modTime} sizes={[s?.geoip.size, s?.geosite.size]} onDone={refreshStatus} />
         <section className="card px-4 pb-4 pt-3.5">
-          <h3 className="mb-2 text-[14px] font-semibold">账户</h3>
-          <p className="mb-3 text-xs text-ink/60">面板密码只保存为 bcrypt 哈希。修改密码会让其他已登录的浏览器下线。</p>
+          <h2 className="mb-2 text-[15px] font-semibold">账户</h2>
+          <p className="mb-3 text-xs text-ink/75">面板密码只保存为 bcrypt 哈希。修改密码会让其他已登录的浏览器下线。</p>
           <div className="flex flex-wrap gap-2">
             <button className="btn-soft" onClick={() => setPwOpen(true)}>
               <KeyRound size={15} /> 修改密码
@@ -197,10 +211,10 @@ function GeoCard({ running, geoip, geosite, sizes, onDone }: { running: boolean;
   return (
     <section className="card px-4 pb-4 pt-3.5">
       <div className="mb-2 flex items-center gap-1.5">
-        <h3 className="text-[14px] font-semibold">规则数据库</h3>
+        <h2 className="text-[15px] font-semibold">规则数据库</h2>
         <Tip>从 v2fly 下载 geoip.dat 与 geosite.dat（dlc.dat）到 /usr/share/dae。dae 运行中时会自动热重载。</Tip>
       </div>
-      <div className="mb-3 grid gap-1 text-xs text-ink/70">
+      <div className="mb-3 grid gap-1 text-xs text-ink/80">
         <div className="flex justify-between">
           <span>geoip.dat</span>
           <span>
@@ -215,27 +229,28 @@ function GeoCard({ running, geoip, geosite, sizes, onDone }: { running: boolean;
         </div>
       </div>
       <div className="flex gap-2">
-        <input className="input" value={mirror} onChange={(e) => setMirror(e.target.value)} placeholder="下载镜像前缀（可选），如 https://ghfast.top/" />
+        <input className="input" aria-label="下载镜像前缀" value={mirror} onChange={(e) => setMirror(e.target.value)} placeholder="下载镜像前缀（可选），如 https://ghfast.top/" />
         <button className="btn-primary shrink-0" onClick={update} disabled={busy}>
           {busy ? <RefreshCw size={15} className="animate-spin" /> : <Download size={15} />}
           {busy ? '下载中' : '更新'}
         </button>
       </div>
-      {msg && <div className={cx('mt-2 text-xs', msg.ok ? 'text-[rgb(28,130,72)] dark:text-accent' : 'text-danger')}>{msg.text}</div>}
+      {msg && <div className={cx('mt-2 text-xs', msg.ok ? 'text-success-ink' : 'text-danger')}>{msg.text}</div>}
     </section>
   );
 }
 
 const LEVEL_TONE: [RegExp, string][] = [
   [/level=(error|fatal|panic)|\b(ERRO|FATA|PANI)\b/, 'text-danger'],
-  [/level=warn|\bWARN\b/, 'text-[rgb(200,120,20)]'],
-  [/level=debug|level=trace|\b(DEBU|TRAC)\b/, 'text-ink/50'],
+  [/level=warn|\bWARN\b/, 'text-warn'],
+  [/level=debug|level=trace|\b(DEBU|TRAC)\b/, 'text-ink/75'],
 ];
 
 function LogCard() {
   const [lines, setLines] = useState<string[]>([]);
   const [paused, setPaused] = useState(false);
   const [filter, setFilter] = useState('');
+  const [level, setLevel] = useState<'all' | 'warn' | 'error'>('all');
   const [connected, setConnected] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(paused);
@@ -261,14 +276,35 @@ function LogCard() {
     if (el && !paused) el.scrollTop = el.scrollHeight;
   }, [lines, paused]);
 
-  const shown = filter ? lines.filter((l) => l.toLowerCase().includes(filter.toLowerCase())) : lines;
+  const needle = filter.toLowerCase();
+  const shown = lines.filter(
+    (l) =>
+      (!needle || l.toLowerCase().includes(needle)) &&
+      (level === 'all' || LEVEL_TONE[0][0].test(l) || (level === 'warn' && LEVEL_TONE[1][0].test(l))),
+  );
 
   return (
     <section className="card px-4 pb-4 pt-3.5">
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <h3 className="text-[14px] font-semibold">实时日志</h3>
-        <span className={cx('h-2 w-2 rounded-full', connected ? 'bg-accent' : 'bg-ink/30')} title={connected ? '已连接' : '未连接'} />
-        <input className="input ml-auto !w-48" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="过滤…" />
+        <h2 className="text-[15px] font-semibold">实时日志</h2>
+        <span className="inline-flex items-center gap-1.5 text-xs text-ink/75">
+          <span className={cx('h-2 w-2 rounded-full', connected ? 'bg-accent' : 'bg-ink/35')} aria-hidden />
+          {connected ? '已连接' : '未连接'}
+        </span>
+        <div className="segmented ml-auto" role="group" aria-label="日志级别">
+          {(
+            [
+              ['all', '全部'],
+              ['warn', '警告及以上'],
+              ['error', '仅错误'],
+            ] as const
+          ).map(([v, label]) => (
+            <button key={v} data-active={level === v} aria-pressed={level === v} onClick={() => setLevel(v)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <input className="input !w-40" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="搜索日志" aria-label="搜索日志" />
         <button className="btn-soft" onClick={() => setPaused(!paused)}>
           {paused ? <Play size={14} /> : <Pause size={14} />}
           {paused ? '继续' : '暂停'}
@@ -277,9 +313,9 @@ function LogCard() {
           清屏
         </button>
       </div>
-      <div ref={boxRef} className="h-[420px] overflow-auto rounded-2xl bg-ink/[0.05] px-3 py-2 font-mono text-[11.5px] leading-5">
+      <div ref={boxRef} role="log" aria-label="dae 日志" tabIndex={0} className="h-[420px] max-h-[60vh] overflow-auto rounded-2xl bg-surface/80 px-3 py-2 font-mono text-[12px] leading-5">
         {shown.length === 0 ? (
-          <div className="py-10 text-center text-ink/50">暂无日志</div>
+          <div className="py-10 text-center text-ink/75">暂无日志</div>
         ) : (
           shown.map((l, i) => (
             <div key={i} className={cx('whitespace-pre-wrap break-all', LEVEL_TONE.find(([re]) => re.test(l))?.[1])}>

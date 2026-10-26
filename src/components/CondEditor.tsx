@@ -36,16 +36,16 @@ export function ParamsEditor({
         return (
           <div key={i} className="flex items-center gap-2">
             {opts.length > 1 || (opts.length === 1 && opts[0].key) ? (
-              <Select className="!w-40 shrink-0" value={p.key} onChange={(v) => set(i, { key: v })} options={opts.map((k) => ({ value: k.key, label: k.label }))} />
+              <Select ariaLabel="匹配方式" className="!w-40 shrink-0" value={p.key} onChange={(v) => set(i, { key: v })} options={opts.map((k) => ({ value: k.key, label: k.label }))} />
             ) : null}
-            <input className="input font-mono" value={p.val} placeholder={KEY_PLACEHOLDERS[p.key] ?? placeholder} onChange={(e) => set(i, { val: e.target.value })} />
+            <input className="input font-mono" aria-label="匹配值" value={p.val} placeholder={KEY_PLACEHOLDERS[p.key] ?? placeholder} onChange={(e) => set(i, { val: e.target.value })} />
             <button className="icon-btn shrink-0 hover:text-danger" onClick={() => onChange(params.filter((_, j) => j !== i))} aria-label="删除值">
               <X size={16} />
             </button>
           </div>
         );
       })}
-      <button className="btn-ghost self-start !h-8 !px-2 text-[12px] text-ink/60" onClick={() => onChange([...params, { key: keyOptions[0]?.key ?? '', val: '' }])}>
+      <button className="btn-ghost self-start !h-8 !px-2 text-[12px] text-ink/75" onClick={() => onChange([...params, { key: keyOptions[0]?.key ?? '', val: '' }])}>
         <Plus size={15} /> {addLabel}
       </button>
     </div>
@@ -63,17 +63,18 @@ export function CondEditor({ conds, onChange, funcs }: { conds: Cond[]; onChange
         if (!spec) options.push({ value: c.name, label: c.name });
         return (
           <div key={i}>
-            {i > 0 && <div className="mb-3 flex items-center gap-2 text-xs text-ink/50"><span className="h-px flex-1 bg-ink/10" />并且 &amp;&amp;<span className="h-px flex-1 bg-ink/10" /></div>}
+            {i > 0 && <div className="mb-3 flex items-center gap-2 text-xs text-ink/75"><span className="h-px flex-1 bg-ink/10" />并且 &amp;&amp;<span className="h-px flex-1 bg-ink/10" /></div>}
             <div className="rounded-[20px] bg-ink/[0.04] p-3">
               <div className="mb-2.5 flex items-center gap-2">
                 <button
-                  className={cx('btn !px-3 shrink-0 border', c.not ? 'border-danger/40 bg-danger/10 text-danger' : 'border-ink/[0.12] bg-surface text-ink/70')}
+                  className={cx('btn !px-3 shrink-0 border', c.not ? 'border-danger/40 bg-danger/10 text-danger' : 'border-ink/[0.12] bg-surface text-ink/80')}
                   onClick={() => set(i, { not: !c.not })}
                   title="取反（!）"
                 >
                   {c.not ? '不匹配' : '匹配'}
                 </button>
                 <Select
+                  ariaLabel="条件类型"
                   value={c.name}
                   onChange={(v) => {
                     const ns = funcs.find((f) => f.name === v);
@@ -85,7 +86,7 @@ export function CondEditor({ conds, onChange, funcs }: { conds: Cond[]; onChange
                   <Trash2 size={16} />
                 </button>
               </div>
-              {spec?.hint && <div className="mb-2 text-xs text-ink/60">{spec.hint}</div>}
+              {spec?.hint && <div className="mb-2 text-xs text-ink/75">{spec.hint}</div>}
               <ParamsEditor params={c.params} onChange={(p) => set(i, { params: p })} keys={spec?.keys} placeholder={spec?.placeholder} />
             </div>
           </div>

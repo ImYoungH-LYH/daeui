@@ -18,9 +18,12 @@ export default {
         glow: 'rgb(var(--glow) / <alpha-value>)',
         danger: 'rgb(var(--danger) / <alpha-value>)',
         info: 'rgb(var(--info) / <alpha-value>)',
+        // Text-safe status colours (AA on the translucent cards).
+        'success-ink': 'rgb(var(--success-ink) / <alpha-value>)',
+        warn: 'rgb(var(--warn) / <alpha-value>)',
       },
       fontSize: {
-        xs: ['11.5px', '16px'],
+        xs: ['12px', '16px'],
         sm: ['13px', '20px'],
         base: ['15px', '22px'],
       },
